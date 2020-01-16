@@ -1,0 +1,238 @@
+<canvas id="canvas" height=300 width=300></canvas>
+
+<script>
+	var canvas = document.getElementById("canvas");
+	var ctx = canvas.getContext("2d");
+	var pieceTypes = [];
+	const SQUARESIZE = 1.3;
+	const DEBUG = false;
+	var gridSquares = new Array();
+	var lvl;
+	var enemyTypes = [];
+	
+	function range(low, high){
+		var list = [];
+		for (var i = low; i <= high; i++) {
+			list.push(i);
+		}
+		return list;
+	}
+	
+	function getClosestInArr(arr, num){
+		var difference = arr[0] - num + 1;
+		var lastDifference;
+		var closest;
+		arr.forEach(function(x){
+			lastDifference = difference;
+			difference = x - num;
+			if(difference < lastDifference){
+				closest = difference;
+			}
+		});
+		return closest;
+	}
+	
+	class GridSquare{
+		constructor(x, y){
+			this.x = x;
+			this.y = y;
+			this.colored = false;
+			this.color = "white";
+			this.piece = null;
+			this.xRange = range(x, x + 20);
+			this.yRange = range(y, y + 20);
+			console.log("Grid square created: " + [this.x, this.y]);
+		}
+		
+		draw(){
+		   if(this.colored){
+			   ctx.fillStyle = this.color;
+			   ctx.fillRect(this.x, this.y, 20, 20);
+			   ctx.stroke();
+		   } 
+		}
+	}
+	
+	class Player{
+		constructor(){
+			console.log("Created player object");
+			this.location = 90;
+			this.color = "yellow";
+			this.x = 10;
+			this.y = 130;
+			this.gObj = null;
+		}
+		
+		moveTo(loc){
+			console.log(this.location);
+			this.location = loc;
+			this.gObj = gridSquares[this.location];
+			this.x = this.gObj.x + 10;
+			this.y = this.gObj.y + 10;
+		}
+		
+		draw(){
+			ctx.beginPath();
+			ctx.arc(this.x, this.y, 10, 0, 2 * Math.PI);
+			ctx.fillStyle = this.color;
+			ctx.fill();
+			ctx.closePath();
+		}
+		
+		handleClick(key){
+			if(key == 87){
+				this.moveTo(this.location - 15);
+			}
+			if(key == 65){
+				this.moveTo(this.location-1);
+			}
+			if(key == 68){
+				this.moveTo(this.location+1);
+			}
+			if(key == 83){
+				this.moveTo(this.location+15);
+			}
+		}
+	}
+	
+	class Enemy extends Player{
+		constructor(spot, moveFunc, color){
+			super();
+			this.startingLocation = spot;
+			this.moveTo(this.startingLocation);
+			this.move = moveFunc;
+			this.color = color;
+		}
+		
+		doTurn(){
+			var num = this.move(this.location);
+			this.moveTo(num);
+			this.draw();
+		}
+	}
+	//enemy types and move functions
+	
+	function normalEnemyMove(location){
+		console.log("Called normalEnemyMove()");
+		var possibleMoves = [location + 15, location - 15, location + 1, location - 1];
+		/*console.log(possibleMoves);
+		possibleMoves.forEach(function(x){
+			if(!(typeof gridSquares[x] == "undefined")){
+				if(gridSquares[x].piece != null || gridSquares[x].piece != lvl.player){
+					possibleMoves.splice(possibleMoves.indexOf(x));
+				}
+				
+			}
+		})
+		console.log("Enemy possible moves are " + possibleMoves);
+		return getClosestInArr(possibleMoves, lvl.player.location);*/
+		try{
+			return possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+		}
+		catch(e){
+			return normalEnemyMove(location);
+		}
+	}
+	
+	function normalEnemy(start){
+		return new Enemy(start, normalEnemyMove, "red");
+	}
+	
+	//------------------------------
+	
+	class Level{
+		constructor(){
+			this.enemies = new Array();
+			this.player = new Player();
+			for(var i=0; i < 96; i++){
+				this.enemies.push(normalEnemy(Math.floor(Math.random()*225)));
+			}
+			this.goal = gridSquares[104];
+			this.goal.colored = true;
+			this.goal.color = "green";
+		}
+	}
+	
+	function setupObjects(){
+		var x = 0;
+		var y = 0;
+		enemyTypes.push(normalEnemy);
+		
+		while(y < 15){
+			while(x < 15){
+				gridSquares.push(new GridSquare(x*20, y*20));
+				x++;
+			}
+			x = 0;
+			y++;
+		}
+		lvl = new Level();
+	}
+	
+	//Courtesy of stack exchange
+	//please dont change this please
+	var drawGrid = function(w, h, id) {
+		var canvas = document.getElementById(id);
+		var ctx = canvas.getContext('2d');
+		ctx.canvas.width  = w;
+		ctx.canvas.height = h;
+
+
+		for (x=0;x<=w;x+=20) {
+			for (y=0;y<=h;y+=20) {
+				ctx.moveTo(x, 0);
+				ctx.lineTo(x, h);
+				ctx.stroke();
+				ctx.moveTo(0, y);
+				ctx.lineTo(w, y);
+				ctx.stroke();
+			}
+		}
+
+	};
+	
+	function extHandleClick(evt){
+		lvl.player.handleClick(evt.keyCode);
+		lvl.enemies.forEach(function(x){
+			x.doTurn();
+		})
+	}
+	
+	function update(){
+		var lost;
+		ctx.clearRect(0, 0, 300, 300);
+		drawGrid(300, 300, "canvas");
+		if(DEBUG){
+			gridSquares[0].colored = true;
+			gridSquares[0].color = "#FFA500";
+			gridSquares[5].colored = true;
+			gridSquares[5].color = "green";
+		}
+		
+		gridSquares.forEach(function(x){
+			x.draw();
+		});
+		lvl.player.draw();
+		lvl.enemies.forEach(function(x){
+			if(x.location == lvl.player.location){
+				console.log("debugA");
+				alert("you lost.");
+				lvl = new Level();
+			}
+			if(x.location==gridSquares.indexOf(lvl.goal)){
+				x.moveTo(225)
+			}
+			x.draw();
+		});
+		if(lvl.player.location == gridSquares.indexOf(lvl.goal)){
+			alert("you win!");
+			lvl = new Level();
+		}
+	}
+	
+	alert("NOTE: WORKS ON PC ONLY!!! (use wasd).");
+	setupObjects();
+	document.onkeydown = extHandleClick;
+	setInterval(update, 10);
+	
+</script>
